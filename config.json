@@ -1,0 +1,14 @@
+{
+	"API_CHECK_STATUS": "/api/device-app/status",
+	"API_CONFIRM_UPATE_STATUS": "/api/device-app/installation-result",
+	"API_CREDENTIALS_CLIENT_ID": "internal",
+	"API_CREDENTIALS_CLIEN_SECRET": "internal"
+	"API_CREDENTIALS_URL": "http://107.113.53.215:39999/oauth/token?grant_type=client_credentials",
+	"API_HOST": "http://107.113.53.217:1627",
+	"API_REGISTER": "/api/devicemanager/register",
+	"deviceId": "600fc536788795cdbbc27688",
+	"get_token_period": 3600,
+	"last_get_token": 1612512366,
+	"last_updated": "2021-02-05 15:06:07",
+	"update_period": 30
+}

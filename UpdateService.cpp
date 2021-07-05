@@ -139,6 +139,7 @@ void UpdateService::CheckStatusTask(UpdateService* us)
 				us->AddPomData(pomData);
 
 				// call callback to app
+				//us->mCallback(us, pomData);
 				std::async(std::launch::async, us->mCallback, us, pomData);
 			}
 			catch (const std::exception& e)
@@ -152,4 +153,248 @@ void UpdateService::CheckStatusTask(UpdateService* us)
 		std::this_thread::sleep_for(std::chrono::seconds(us->mCommunicationManager->mCheckStatisPeriod));
 	}
 	SPDLOG_INFO("Thread Ended");
+}
+
+bool UpdateService::Start()
+{
+	try
+	{
+		// get token
+		try
+		{
+			auto tokenSuccess = mCommunicationManager->GetToken();
+		}
+		catch (const std::exception& e)
+		{
+			SPDLOG_ERROR(e.what());
+			throw e;
+		}
+
+		//register agent
+		try
+		{
+			auto registerSuccess = mCommunicationManager->RegisterAgent(mSystemInfo);
+			if (false == registerSuccess)
+			{
+				SPDLOG_ERROR("Register Agent fail");
+				return false;
+			}
+		}
+		catch (const SdaException &e)
+		{
+			printf(e.what());
+			if (e.get_code() != ALREADY_REGISTER_DEVICE_ERROR)
+				throw e;
+		}
+
+		active = true;
+		mUpdateThread = new std::thread(&UpdateService::CheckStatusTask, this);
+		//mUpdateThread->detach();
+		//mUpdateThread->join();
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		SPDLOG_ERROR(e.what());
+	}
+	return false;
+}
+
+bool UpdateService::Stop()
+{
+	try
+	{
+		active = false;
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		SPDLOG_ERROR(e.what());
+	}
+
+	return false;
+}
+
+bool UpdateService::UpdateLocalVersionApp(const InstallationResult& result)
+{
+	SPDLOG_INFO("Confirm update app={}@{} status={} message={}",
+		result.appId,
+		result.versionId,
+		result.status,
+		result.message);
+
+	vector<InstallationResult> results;
+	results.push_back(result);
+
+	//find pom in vector
+	PomData pomData;
+
+	for (auto pom : mPoms)
+	{
+		if (pom.groupId == result.appId && pom.modelVersionl == result.versionId)
+		{
+			pomData = pom;
+			SPDLOG_INFO("Found pom data {:p} in vector", (void*)&pom);
+			break;
+		}
+	}
+
+	// not found pom in vector
+	if (!pomData)
+	{
+		SPDLOG_ERROR("Can not found pom data in vector with {}@{}",
+			result.appId,
+			result.versionId);
+		return false;
+	}
+
+	//delete all file downloaded
+	auto downloadedPath = ghc::filesystem::path(Utils::PATH_DOWNLOAD_DIR) / pomData.groupId;
+	try
+	{
+		ghc::filesystem::remove_all(downloadedPath);
+	}
+	catch (const std::exception& ex)
+	{
+		SPDLOG_ERROR("Can not remove downloaded folder {}", downloadedPath.generic_string());
+		SPDLOG_ERROR("{}", ex.what());
+	}
+
+	// remove pomdata in vector
+	mPoms.erase(remove(mPoms.begin(), mPoms.end(), pomData), mPoms.end());
+
+	auto response = mCommunicationManager->ConfirmUpdateStatus(results);
+	if (false == response)
+		return false;
+
+	SPDLOG_INFO("Update {}@{} in remote server success.",
+		result.appId,
+		result.versionId);
+
+	if (true == result.status)
+	{
+		// save local version
+		response = mLocalVersionManager.SaveLocalVersionApp(pomData);
+		if (false == response)
+			return false;
+
+		SPDLOG_INFO("Save local version {}@{} success.",
+			result.appId,
+			result.versionId);
+	}
+
+	return true;
+}
+
+bool UpdateService::LoadConfig()
+{
+	if (false == ghc::filesystem::exists(Utils::PATH_CONFIG_FILE))
+		throw SdaException("Config file not exit", NO_CONFIG_FILE_ERROR);
+
+	// load json config
+	try
+	{
+		ifstream t(Utils::PATH_CONFIG_FILE);
+		if (t.good())
+		{
+			t >> Config::json;
+		}
+		t.close();
+	}
+	catch (const std::exception& e)
+	{
+		// can not read config file
+		SPDLOG_ERROR(e.what());
+		throw SdaException("Can not parse config file", PARSE_CONFIG_FILE_ERROR);
+	}
+
+	SPDLOG_INFO("Load config from {}", Utils::PATH_CONFIG_FILE);
+
+	// update static from json
+	try
+	{
+		Utils::API_HOST = Config::GetString("API_HOST");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_HOST in config", NO_CONFIG_ERROR);
+	}
+
+	try
+	{
+		Utils::API_REGISTER = Config::GetString("API_REGISTER");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_REGISTER in config", NO_CONFIG_ERROR);
+	}
+
+	try
+	{
+		Utils::API_CHECK_STATUS = Config::GetString("API_CHECK_STATUS");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_CHECK_STATUS in config", NO_CONFIG_ERROR);
+	}
+
+	try
+	{
+		Utils::API_CONFIRM_UPATE_STATUS = Config::GetString("API_CONFIRM_UPATE_STATUS");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_CONFIRM_UPATE_STATUS in config", NO_CONFIG_ERROR);
+	}
+
+	try
+	{
+		Utils::API_CREDENTIALS_URL = Config::GetString("API_CREDENTIALS_URL");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_CREDENTIALS_URL in config", NO_CONFIG_ERROR);
+	}
+
+	try
+	{
+		Utils::API_CREDENTIALS_CLIENT_ID = Config::GetString("API_CREDENTIALS_CLIENT_ID");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_CREDENTIALS_CLIENT_ID in config", NO_CONFIG_ERROR);
+	}
+
+	try
+	{
+		Utils::API_CREDENTIALS_CLIEN_SECRET = Config::GetString("API_CREDENTIALS_CLIEN_SECRET");
+	}
+	catch (const std::exception&)
+	{
+		throw SdaException("No API_CREDENTIALS_CLIEN_SECRET in config", NO_CONFIG_ERROR);
+	}
+}
+
+bool UpdateService::SaveConfig()
+{
+	try
+	{
+		// save json to file
+		ofstream o(Utils::PATH_CONFIG_FILE);
+		o << setw(4) << Config::json << std::endl;
+		o.close();
+
+		SPDLOG_INFO("Save config to {}", Utils::PATH_CONFIG_FILE);
+		return true;
+	}
+	catch (const std::exception& e)
+	{
+		SPDLOG_ERROR("Can not save config file : {}", e.what());
+	}
+	return false;
+}
+
+void UpdateService::AddPomData(const PomData& pom_data)
+{
+	mPoms.push_back(pom_data);
 }
