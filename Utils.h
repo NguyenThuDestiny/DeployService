@@ -80,6 +80,7 @@ struct HttpAuthorization {
 
 class Utils
 {
+public:
 	static string API_CREDENTIALS_URL;
 	static string API_CREDENTIALS_CLIENT_ID;
 	static string API_CREDENTIALS_CLIEN_SECRET;
@@ -92,7 +93,7 @@ class Utils
 	static string PATH_LOCAL_VERSION_DIR;
 	static string PATH_DOWNLOAD_DIR;
 
-	static PomData Parse(const string& pom_content);
+	static PomData ParsePom(const string& pom_content);
 	static int VersionCompare(const string& v1, const string& v2);
 	static string GetHost(const string& uri);
 	static string GetPath(const string& uri);

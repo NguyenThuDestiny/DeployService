@@ -80,16 +80,133 @@ Utils::Initializer::Initializer() {
 
 	//create local folder to save pom file
 	auto localPath = cwd / "local";
-	Utils::PATH_LOCAL_VERSION_DIR = localPath;
+	Utils::PATH_LOCAL_VERSION_DIR = localPath.generic_string();
 	ghc::filesystem::create_directories(Utils::PATH_LOCAL_VERSION_DIR);
 
 	//create downloead folder to download binary file
 	auto downloadPath = cwd / "download";
-	Utils::PATH_DOWNLOAD_DIR = downloadPath;
+	Utils::PATH_DOWNLOAD_DIR = downloadPath.generic_string();
 	error_code ec;
 	ghc::filesystem::remove_all(Utils::PATH_DOWNLOAD_DIR, ec);
 	ghc::filesystem::create_directories(Utils::PATH_DOWNLOAD_DIR);
 
 	auto configPath = cwd / "config.json";
-	Utils::PATH_CONFIG_FILE = configPath;
+	Utils::PATH_CONFIG_FILE = configPath.generic_string();
+}
+
+PomData Utils::ParsePom(const string& pom_content) {
+	pugi::xml_document doc;
+	pugi::xml_parse_result result = doc.load_string(pom_content.c_str());
+
+	if (!result) {
+		SPDLOG_ERROR("Cannot parse pom offset = {} error={}",
+			result.offset,
+			result.description());
+		throw SdaException(result.description(), PARSE_POM_ERROR);
+	}
+
+	auto project = doc.child("project");
+
+	PomData pomData;
+	pomData.modelVersionl = project.child("modelVersion").text().get();
+	pomData.groupId = project.child("groupId").text().get();
+	pomData.artifactId = project.child("artifactId").text().get();
+	pomData.version = project.child("version").text().get();
+	pomData.packaging = project.child("packaging").text().get();
+	pomData.versionId = project.child("versionId").text().get();
+
+	auto dependencies = project.child("dependencies");
+	for (pugi::xml_node dependency = dependencies.child("dependency"); dependency; dependency = dependency.next_sibling("dependency")) {
+		Dependency dep;
+		dep.groupid = dependency.child("groupId").text().get();
+		dep.artifactId = dependency.child("artifactId").text().get();
+		dep.version = dependency.child("version").text().get();
+		dep.type = dependency.child("type").text().get();
+
+		pomData.dependencies.push_back(dep);
+	}
+
+	auto repositories = project.child("repositories");
+	for (pugi::xml_node repository = repositories.child("repository"); repository; repository = repository.next_sibling("repository")) {
+		Repository rep;
+		rep.id = repository.child("id").text().get();
+		rep.url = repository.child("url").text().get();
+
+		pomData.repositories.push_back(rep);
+	}
+	
+	return pomData;
+}
+
+int Utils::VersionCompare(const string& v1, const string& v2) {
+	unsigned int vnum1 = 0, vnum2 = 0;
+	for (unsigned int i = 0, j = 0; (i < v1.length()) || (j < v2.length());) {
+		while (i < v1.length() && v1[i] != '.') {
+			vnum1 = vnum1 * 10 + (v1[i] - '0');
+			i++;
+		}
+		while (j < v2.length() && v2[j] != '.') {
+			vnum2 = vnum2 * 10 + (v2[j] - '0');
+			j++;
+		}
+		if (vnum1 > vnum2)
+			return 1;
+		if (vnum2 > vnum1)
+			return -1;
+
+		vnum1 = vnum2 = 0;
+		i++;
+		j++;
+	}
+	return 0;
+}
+
+string Utils::GetHost(const string& uri) {
+	Url url(uri);
+	string result = "";
+	if (url.host().empty())
+		return result;
+
+	if (false == url.scheme().empty())
+		result += url.scheme() + "://";
+	result += url.host();
+	if (false == url.port().empty())
+		result += ":" + url.port();
+	return result;
+}
+
+string Utils::GetPath(const string& uri) {
+	Url url(uri);
+	string result = url.path();
+	auto query = url.query();
+	if (false == query.empty()) {
+		result += "?";
+		for (const auto& q : query) {
+			result += q.key() + "=" + q.val();
+		}
+	}
+	return result;
+}
+
+int Utils::Random(const int& min, const int& max) {
+	return min + (rand() % static_cast<int>(max - min + 1));
+}
+
+string Utils::GetDateTimeString() {
+	time_t rawtime;
+	struct tm* timeinfo;
+	char buffer[80];
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+	std::string str(buffer);
+	
+	return str;
+}
+
+long long Utils::GetTimestamp() {
+	auto sec = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch());
+	return sec.count();
 }
