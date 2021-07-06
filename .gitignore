@@ -41,6 +41,8 @@ CMakeSettings.json
 *.vcxitems
 *.vcxproj
 *.filters
+*.user
+*.APS
 Debug/
 out/
 CMakeFiles/
