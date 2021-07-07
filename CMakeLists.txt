@@ -334,7 +334,7 @@ elseif(WIN32)
 endif()
 
 if(TARGET sda-qt)
-	target_link_libraries(sda-qt PRIVATE
+	target_link_libraries(sda-qt PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network
 		sda ${CONAN_LIBS} ${SSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS} ${OSLIBS_LIBRARIES}) 
 endif()
 
