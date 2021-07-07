@@ -211,7 +211,7 @@ if(WIN32)
 		${OSLIBS_ADVAPI_32_LIBRARY}
 		${OSLIBS_USER_32_LIBRARY}
 		${OSLIBS_WINMM_LIBRARY}
-		${OSLIBS_CRYPT_32_LIBRARY}
+                ${OSLIBS_CRYPT_32_LIBRARY})
 	list(APPEND SDA_LIBS "${OSLIBS_LIBRARIES}")
 	message(STATUS "Setting Windows system libraries manually then..")
 endif()
@@ -239,7 +239,7 @@ if(MINGW)
 		message(STATUS "Found libwinpthread at ${MINGW_LIBWINPTHREAD}")
 	else()
 		message(SEND_ERROR "Could not find libwinpthread!")
-	elseif()
+        endif()
 endif()
 
 #
@@ -256,7 +256,7 @@ endif()
 set(SDA_INCLUDE_DIR sda)
 set(SDA_SRCS
 		sda/Config.cpp
-		sda/CommunictionManager.cpp
+                sda/CommunicationManager.cpp
 		sda/LocalVersionManager.cpp
 		sda/SystemInfo.cpp
 		sda/UpdateService.cpp
@@ -286,7 +286,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/whereami)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/lib/filesystem/include)
 include_directories(${SDA_INCLUDE_DIR})
 
-add_library(sda STATIC ${PUGIXML_SRCS} ${CXXURL_SRCS} ${WHEREAMI_SRCS} ${SDA_SRCS}}
+add_library(sda STATIC ${PUGIXML_SRCS} ${CXXURL_SRCS} ${WHEREAMI_SRCS} ${SDA_SRCS})
 target_link_libraries(sda
 	${CONAN_LIBS} ${SSL_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 	
@@ -348,7 +348,7 @@ if(MINGW)
 			COMMAND ${CMAKE_COMMAND} -E copy ${MINGW_LIBSTDCPP} ${CMAKE_BINARY_DIR}
 			COMMAND ${CMAKE_COMMAND} -E copy ${MINGW_LIBWINPTHREAD} ${CMAKE_BINARY_DIR}
 			COMMAND ${CMAKE_COMMAND} -E copy ${MINGW_LIBCRYPTO} ${CMAKE_BINARY_DIR}
-			COMMAND ${CMAKE_COMMAND} -E copy ${MINGW_LIBSSL} ${CMAKE_BINARY_DIR}
+                        COMMAND ${CMAKE_COMMAND} -E copy ${MINGW_LIBSSL} ${CMAKE_BINARY_DIR})
 	add_dependencies(sda MingWCopyBinaries)
 endif()
 
